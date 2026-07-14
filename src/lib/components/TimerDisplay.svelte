@@ -1,26 +1,25 @@
 <script lang="ts">
-  // Displays the remaining time (MM:SS).
-  import type { TimerState } from '$lib/types';
-
   interface Props {
-    state: TimerState;
+    remainingSecs: number;
+    disabled?: boolean;
   }
 
-  let { state }: Props = $props();
+  let { remainingSecs, disabled = false }: Props = $props();
 
-  let remaining = $derived(state.total_secs - state.elapsed_secs);
+  let remaining = $derived(Math.max(0, remainingSecs));
   let minutes = $derived(Math.floor(remaining / 60));
   let seconds = $derived(remaining % 60);
-  let display = $derived(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+  let display = $derived(
+    disabled ? '--:--' : `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  );
 </script>
 
 <div class="display">
-  <span class="time">{display}</span>
+  <span class="time" class:disabled>{display}</span>
 </div>
 
 <style>
   .display {
-    /* Fill the dial-stack and flex-center the time. */
     position: absolute;
     inset: 0;
     display: flex;
@@ -36,5 +35,10 @@
     font-stretch: 85%;
     letter-spacing: -0.02em;
     color: var(--color-foreground);
+    transition: opacity var(--transition-default);
+  }
+
+  .time.disabled {
+    opacity: 0.42;
   }
 </style>

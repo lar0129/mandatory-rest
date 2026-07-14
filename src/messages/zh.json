@@ -170,5 +170,21 @@
   "rest_overlay_title": "休息一下",
   "rest_overlay_skip": "跳过本次",
   "rest_overlay_skip_hint": "按 Esc 跳过",
-  "rest_default_message": "休息一下眼睛。起身伸展，深呼吸。"
+  "rest_default_message": "休息一下眼睛。起身伸展，深呼吸。",
+  "rest_tab_pomodoro": "番茄钟",
+  "rest_tab_background": "强制休息",
+  "rest_status_counting": "距离下次强制休息",
+  "rest_status_manual_paused": "已手动暂停",
+  "rest_status_pomodoro_paused": "番茄钟运行时自动暂停",
+  "rest_status_disabled": "强制休息已关闭",
+  "rest_status_overlay": "正在休息",
+  "rest_tooltip_pause": "暂停后台强制休息倒计时。",
+  "rest_tooltip_resume": "继续后台强制休息倒计时。",
+  "rest_tooltip_reset": "将后台强制休息倒计时重置为完整间隔。",
+  "rest_group_pause_protection": "暂停保护",
+  "rest_pause_warning_interval": "暂停超时提醒",
+  "rest_pause_warning_interval_desc": "未运行番茄钟且手动暂停时，按此间隔重复发送桌面提醒。",
+  "rest_pause_warning_title": "强制休息计时仍处于暂停状态",
+  "rest_pause_warning_body": "强制休息计时已暂停 {minutes} 分钟。请继续计时或开启番茄钟，也别忘了及时休息。",
+  "rest_next_warning": "{time} 后再次提醒"
 }

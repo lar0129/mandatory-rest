@@ -170,5 +170,21 @@
   "rest_overlay_title": "Take a break",
   "rest_overlay_skip": "Skip this break",
   "rest_overlay_skip_hint": "Press Esc to skip",
-  "rest_default_message": "Rest your eyes. Stand up, stretch, and breathe."
+  "rest_default_message": "Rest your eyes. Stand up, stretch, and breathe.",
+  "rest_tab_pomodoro": "Pomodoro",
+  "rest_tab_background": "Forced Rest",
+  "rest_status_counting": "Next forced rest",
+  "rest_status_manual_paused": "Manually paused",
+  "rest_status_pomodoro_paused": "Paused while Pomodoro runs",
+  "rest_status_disabled": "Forced rest is disabled",
+  "rest_status_overlay": "Rest in progress",
+  "rest_tooltip_pause": "Pause the forced-rest countdown.",
+  "rest_tooltip_resume": "Resume the forced-rest countdown.",
+  "rest_tooltip_reset": "Reset the forced-rest countdown to the full interval.",
+  "rest_group_pause_protection": "Pause Protection",
+  "rest_pause_warning_interval": "Paused timer warning",
+  "rest_pause_warning_interval_desc": "While manually paused without Pomodoro running, repeat a desktop reminder at this interval.",
+  "rest_pause_warning_title": "Your rest timer is still paused",
+  "rest_pause_warning_body": "The forced-rest timer has been paused for {minutes} minutes. Resume it or start a Pomodoro, and remember to rest.",
+  "rest_next_warning": "Reminder in {time}"
 }

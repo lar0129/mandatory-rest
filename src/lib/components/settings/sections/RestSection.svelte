@@ -100,6 +100,33 @@
     </label>
   </div>
 
+  <div class="group-heading">{m.rest_group_pause_protection()}</div>
+
+  <div class="fields" class:disabled={!$settings.rest_reminder_enabled}>
+    <label class="field-row">
+      <span class="field-meta">
+        <span class="label">{m.rest_pause_warning_interval()}</span>
+        <span class="desc">{m.rest_pause_warning_interval_desc()}</span>
+      </span>
+      <span class="number-control">
+        <input
+          type="number"
+          min="1"
+          max="240"
+          value={Math.round($settings.rest_reminder_pause_warning_secs / 60)}
+          onchange={(event) =>
+            saveNumber(
+              'rest_reminder_pause_warning_secs',
+              (event.currentTarget as HTMLInputElement).valueAsNumber * 60,
+              60,
+              240 * 60
+            )}
+        />
+        <span>{m.rest_minutes()}</span>
+      </span>
+    </label>
+  </div>
+
   <div class="group-heading">{m.rest_group_overlay()}</div>
 
   <div class="message-row" class:disabled={!$settings.rest_reminder_enabled}>

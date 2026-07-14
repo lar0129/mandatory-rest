@@ -13,6 +13,12 @@
     remaining_secs: 0,
     allow_skip: false,
     reason: '',
+    enabled: true,
+    timer_remaining_secs: 0,
+    timer_total_secs: 0,
+    is_paused: false,
+    pause_reason: '',
+    next_pause_warning_secs: 0,
   });
   let remaining = $state(0);
   let dismissing = $state(false);

@@ -61,6 +61,7 @@ export interface Settings {
   rest_reminder_duration_secs: number;
   rest_reminder_message: string;
   rest_reminder_allow_skip: boolean;
+  rest_reminder_pause_warning_secs: number;
 }
 
 export interface RestReminderState {
@@ -69,6 +70,12 @@ export interface RestReminderState {
   remaining_secs: number;
   allow_skip: boolean;
   reason: 'scheduled' | 'pomodoro' | 'preview' | '';
+  enabled: boolean;
+  timer_remaining_secs: number;
+  timer_total_secs: number;
+  is_paused: boolean;
+  pause_reason: 'manual' | 'pomodoro' | '';
+  next_pause_warning_secs: number;
 }
 
 /** Returned by `check_update` — describes an available update. */

@@ -28,6 +28,9 @@ export const getTimerState = () => invoke<TimerState>('timer_get_state');
 export const getRestReminderState = () => invoke<RestReminderState>('rest_reminder_get_state');
 export const dismissRestReminder = () => invoke<void>('rest_reminder_dismiss');
 export const previewRestReminder = () => invoke<void>('rest_reminder_preview');
+export const pauseRestReminder = () => invoke<void>('rest_reminder_pause');
+export const resumeRestReminder = () => invoke<void>('rest_reminder_resume');
+export const resetRestReminder = () => invoke<void>('rest_reminder_reset');
 
 // --- Settings commands ---
 
@@ -130,6 +133,14 @@ export const onRoundChange = (cb: (state: TimerState) => void): Promise<Unlisten
 
 export const onTimerReset = (cb: (state: TimerState) => void): Promise<UnlistenFn> =>
   listen<TimerState>('timer:reset', (e) => cb(e.payload));
+
+export const onRestReminderState = (cb: (state: RestReminderState) => void): Promise<UnlistenFn> =>
+  listen<RestReminderState>('rest:state', (e) => cb(e.payload));
+
+export const onRestPauseWarning = (
+  cb: (payload: { paused_secs: number }) => void
+): Promise<UnlistenFn> =>
+  listen<{ paused_secs: number }>('rest:pause-warning', (e) => cb(e.payload));
 
 export const onSettingsChanged = (cb: (settings: Settings) => void): Promise<UnlistenFn> =>
   listen<Settings>('settings:changed', (e) => cb(e.payload));

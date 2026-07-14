@@ -25,7 +25,8 @@ use commands::{
     audio_clear_custom, audio_get_custom_info, audio_set_custom,
     get_log_dir, open_log_dir,
     notification_show,
-    rest_reminder_dismiss, rest_reminder_get_state, rest_reminder_preview,
+    rest_reminder_dismiss, rest_reminder_get_state, rest_reminder_pause,
+    rest_reminder_preview, rest_reminder_reset, rest_reminder_resume,
     settings_get, settings_reset_defaults, settings_set,
     shortcuts_reload,
     sessions_clear,
@@ -135,6 +136,7 @@ pub fn run() {
             let rest_reminder = Arc::new(rest_reminder::RestReminderController::new(
                 app.handle().clone(),
                 &initial_settings,
+                Arc::clone(&tray_state),
             ));
             app.manage(Arc::clone(&rest_reminder));
 
@@ -389,6 +391,9 @@ pub fn run() {
             rest_reminder_get_state,
             rest_reminder_dismiss,
             rest_reminder_preview,
+            rest_reminder_pause,
+            rest_reminder_resume,
+            rest_reminder_reset,
             // Settings
             settings_get,
             settings_set,

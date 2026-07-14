@@ -67,6 +67,8 @@ pub struct Settings {
     pub rest_reminder_message: String,
     /// Whether the overlay exposes a skip button and Escape shortcut.
     pub rest_reminder_allow_skip: bool,
+    /// Repeated warning interval while the forced-rest timer is manually paused.
+    pub rest_reminder_pause_warning_secs: u32,
     /// Last known window X coordinate (physical pixels). `None` = use OS default.
     pub window_x: Option<i32>,
     /// Last known window Y coordinate (physical pixels). `None` = use OS default.
@@ -135,6 +137,7 @@ impl Default for Settings {
             rest_reminder_duration_secs: 20,
             rest_reminder_message: "Rest your eyes. Stand up, stretch, and breathe.".to_string(),
             rest_reminder_allow_skip: true,
+            rest_reminder_pause_warning_secs: 20 * 60,
             window_x: None,
             window_y: None,
             window_width: None,
@@ -282,6 +285,12 @@ pub fn load(conn: &Connection) -> Result<Settings> {
             "rest_reminder_allow_skip",
             d.rest_reminder_allow_skip,
         ),
+        rest_reminder_pause_warning_secs: parse_u32(
+            &map,
+            "rest_reminder_pause_warning_secs",
+            d.rest_reminder_pause_warning_secs,
+        )
+        .max(60),
         window_x: parse_opt_i32(&map, "window_x"),
         window_y: parse_opt_i32(&map, "window_y"),
         window_width: parse_opt_u32(&map, "window_width"),
@@ -383,6 +392,7 @@ mod tests {
         assert_eq!(s.rest_reminder_interval_secs, 60 * 60);
         assert_eq!(s.rest_reminder_duration_secs, 20);
         assert!(s.rest_reminder_allow_skip);
+        assert_eq!(s.rest_reminder_pause_warning_secs, 20 * 60);
     }
 
     #[test]

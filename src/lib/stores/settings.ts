@@ -48,6 +48,7 @@ const defaults: Settings = {
   rest_reminder_duration_secs: 20,
   rest_reminder_message: 'Rest your eyes. Stand up, stretch, and breathe.',
   rest_reminder_allow_skip: true,
+  rest_reminder_pause_warning_secs: 1200,
 };
 
 export const settings = writable<Settings>(defaults);

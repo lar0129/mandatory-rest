@@ -25,6 +25,7 @@ use tauri::{
     AppHandle, Manager,
 };
 
+use crate::rest_reminder::{RestReminderController, RestReminderSnapshot};
 use crate::timer::TimerController;
 use tiny_skia::{Color, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
@@ -62,7 +63,8 @@ impl TrayColors {
     pub fn from_colors_map(colors: &std::collections::HashMap<String, String>) -> Self {
         let d = Self::default();
         let get = |key: &str, fallback: [u8; 4]| {
-            colors.get(key)
+            colors
+                .get(key)
                 .and_then(|hex| parse_hex_color(hex))
                 .unwrap_or(fallback)
         };
@@ -70,8 +72,8 @@ impl TrayColors {
             background: get("--color-background", d.background),
             focus_round: get("--color-focus-round", d.focus_round),
             short_round: get("--color-short-round", d.short_round),
-            long_round:  get("--color-long-round",  d.long_round),
-            foreground:  get("--color-foreground",   d.foreground),
+            long_round: get("--color-long-round", d.long_round),
+            foreground: get("--color-foreground", d.foreground),
         }
     }
 }
@@ -104,6 +106,8 @@ pub fn parse_hex_color(hex: &str) -> Option<[u8; 4]> {
 /// Handles to the dynamic timer-control menu items.
 /// Stored in `TrayState` so the timer event thread can update labels/enabled states.
 pub struct TrayMenuItems {
+    pub pomodoro_time: MenuItem<tauri::Wry>,
+    pub rest_time: MenuItem<tauri::Wry>,
     pub toggle: MenuItem<tauri::Wry>,
     pub skip: MenuItem<tauri::Wry>,
     pub reset_round: MenuItem<tauri::Wry>,
@@ -230,33 +234,136 @@ pub fn create_tray(app: &AppHandle, state: &Arc<TrayState>) {
         return;
     }
 
-    let toggle_item = match MenuItem::with_id(app, "toggle", "Start", true, None::<&str>) {
-        Ok(i) => i,
-        Err(e) => { log::warn!("[tray] menu item error: {e}"); return; }
+    let timer_snapshot = app
+        .try_state::<TimerController>()
+        .map(|timer| timer.get_snapshot());
+    let rest_snapshot = app
+        .try_state::<Arc<RestReminderController>>()
+        .map(|rest| rest.snapshot());
+
+    let pomodoro_label = timer_snapshot
+        .as_ref()
+        .map(|snapshot| {
+            timer_time_label(
+                snapshot.total_secs.saturating_sub(snapshot.elapsed_secs),
+                snapshot.is_running,
+                snapshot.is_paused,
+            )
+        })
+        .unwrap_or_else(|| timer_time_label(0, false, false));
+    let rest_label = rest_snapshot
+        .as_ref()
+        .map(rest_time_label)
+        .unwrap_or_else(|| "Rest break  ·  --:--".to_string());
+    let (timer_running, timer_paused) = timer_snapshot
+        .as_ref()
+        .map(|snapshot| (snapshot.is_running, snapshot.is_paused))
+        .unwrap_or((false, false));
+    let toggle_label = if timer_running {
+        "Pause"
+    } else if timer_paused {
+        "Resume"
+    } else {
+        "Start"
     };
-    let skip_item = match MenuItem::with_id(app, "skip", "Skip", false, None::<&str>) {
+    let timer_controls_enabled = timer_running || timer_paused;
+
+    let pomodoro_time_item =
+        match MenuItem::with_id(app, "pomodoro-time", pomodoro_label, false, None::<&str>) {
+            Ok(i) => i,
+            Err(e) => {
+                log::warn!("[tray] menu item error: {e}");
+                return;
+            }
+        };
+    let rest_time_item = match MenuItem::with_id(app, "rest-time", rest_label, false, None::<&str>)
+    {
         Ok(i) => i,
-        Err(e) => { log::warn!("[tray] menu item error: {e}"); return; }
+        Err(e) => {
+            log::warn!("[tray] menu item error: {e}");
+            return;
+        }
     };
-    let reset_item = match MenuItem::with_id(app, "reset-round", "Reset Round", false, None::<&str>) {
+    let time_sep = match PredefinedMenuItem::separator(app) {
         Ok(i) => i,
-        Err(e) => { log::warn!("[tray] menu item error: {e}"); return; }
+        Err(e) => {
+            log::warn!("[tray] menu item error: {e}");
+            return;
+        }
+    };
+    let toggle_item = match MenuItem::with_id(app, "toggle", toggle_label, true, None::<&str>) {
+        Ok(i) => i,
+        Err(e) => {
+            log::warn!("[tray] menu item error: {e}");
+            return;
+        }
+    };
+    let skip_item = match MenuItem::with_id(
+        app,
+        "skip",
+        "Skip",
+        timer_controls_enabled,
+        None::<&str>,
+    ) {
+        Ok(i) => i,
+        Err(e) => {
+            log::warn!("[tray] menu item error: {e}");
+            return;
+        }
+    };
+    let reset_item = match MenuItem::with_id(
+        app,
+        "reset-round",
+        "Reset Round",
+        timer_controls_enabled,
+        None::<&str>,
+    ) {
+        Ok(i) => i,
+        Err(e) => {
+            log::warn!("[tray] menu item error: {e}");
+            return;
+        }
     };
     let sep = match PredefinedMenuItem::separator(app) {
         Ok(i) => i,
-        Err(e) => { log::warn!("[tray] menu item error: {e}"); return; }
+        Err(e) => {
+            log::warn!("[tray] menu item error: {e}");
+            return;
+        }
     };
     let show_item = match MenuItem::with_id(app, "show", "Show", true, None::<&str>) {
         Ok(i) => i,
-        Err(e) => { log::warn!("[tray] menu item error: {e}"); return; }
+        Err(e) => {
+            log::warn!("[tray] menu item error: {e}");
+            return;
+        }
     };
     let exit_item = match MenuItem::with_id(app, "exit", "Exit", true, None::<&str>) {
         Ok(i) => i,
-        Err(e) => { log::warn!("[tray] menu item error: {e}"); return; }
+        Err(e) => {
+            log::warn!("[tray] menu item error: {e}");
+            return;
+        }
     };
-    let menu = match Menu::with_items(app, &[&toggle_item, &skip_item, &reset_item, &sep, &show_item, &exit_item]) {
+    let menu = match Menu::with_items(
+        app,
+        &[
+            &pomodoro_time_item,
+            &rest_time_item,
+            &time_sep,
+            &toggle_item,
+            &skip_item,
+            &reset_item,
+            &sep,
+            &show_item,
+            &exit_item,
+        ],
+    ) {
         Ok(m) => m,
-        Err(e) => { log::warn!("[tray] menu error: {e}"); return; }
+        Err(e) => {
+            log::warn!("[tray] menu error: {e}");
+            return;
+        }
     };
 
     // Render the initial idle icon using the current state (respects countdown mode
@@ -300,37 +407,35 @@ pub fn create_tray(app: &AppHandle, state: &Arc<TrayState>) {
                 }
             }
         })
-        .on_menu_event(|app, event| {
-            match event.id().as_ref() {
-                "toggle" => {
-                    if let Some(timer) = app.try_state::<TimerController>() {
-                        timer.toggle();
-                    }
+        .on_menu_event(|app, event| match event.id().as_ref() {
+            "toggle" => {
+                if let Some(timer) = app.try_state::<TimerController>() {
+                    timer.toggle();
                 }
-                "skip" => {
-                    if let Some(timer) = app.try_state::<TimerController>() {
-                        timer.skip();
-                    }
-                }
-                "reset-round" => {
-                    if let Some(timer) = app.try_state::<TimerController>() {
-                        timer.restart_round();
-                    }
-                }
-                "show" => {
-                    log::info!("[tray] show");
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.unminimize();
-                        let _ = window.set_focus();
-                    }
-                }
-                "exit" => {
-                    log::info!("[tray] exit");
-                    app.exit(0);
-                }
-                _ => {}
             }
+            "skip" => {
+                if let Some(timer) = app.try_state::<TimerController>() {
+                    timer.skip();
+                }
+            }
+            "reset-round" => {
+                if let Some(timer) = app.try_state::<TimerController>() {
+                    timer.restart_round();
+                }
+            }
+            "show" => {
+                log::info!("[tray] show");
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.unminimize();
+                    let _ = window.set_focus();
+                }
+            }
+            "exit" => {
+                log::info!("[tray] exit");
+                app.exit(0);
+            }
+            _ => {}
         })
         .build(app);
 
@@ -338,6 +443,8 @@ pub fn create_tray(app: &AppHandle, state: &Arc<TrayState>) {
         Ok(t) => {
             *state.icon.lock().unwrap() = Some(t);
             *state.menu_items.lock().unwrap() = Some(TrayMenuItems {
+                pomodoro_time: pomodoro_time_item,
+                rest_time: rest_time_item,
                 toggle: toggle_item,
                 skip: skip_item,
                 reset_round: reset_item,
@@ -396,12 +503,77 @@ pub fn update_menu_items(state: &Arc<TrayState>, is_running: bool, is_paused: bo
     let guard = state.menu_items.lock().unwrap();
     let Some(items) = guard.as_ref() else { return };
 
-    let toggle_label = if is_running { "Pause" } else if is_paused { "Resume" } else { "Start" };
+    let toggle_label = if is_running {
+        "Pause"
+    } else if is_paused {
+        "Resume"
+    } else {
+        "Start"
+    };
     let controls_enabled = is_running || is_paused;
 
     let _ = items.toggle.set_text(toggle_label);
     let _ = items.skip.set_enabled(controls_enabled);
     let _ = items.reset_round.set_enabled(controls_enabled);
+}
+
+/// Update the read-only Pomodoro countdown shown at the top of the tray menu.
+pub fn update_timer_time(
+    state: &Arc<TrayState>,
+    remaining_secs: u32,
+    is_running: bool,
+    is_paused: bool,
+) {
+    let guard = state.menu_items.lock().unwrap();
+    let Some(items) = guard.as_ref() else { return };
+    let _ = items
+        .pomodoro_time
+        .set_text(timer_time_label(remaining_secs, is_running, is_paused));
+}
+
+/// Update the read-only background forced-rest countdown in the tray menu.
+pub fn update_rest_time(state: &Arc<TrayState>, snapshot: &RestReminderSnapshot) {
+    let guard = state.menu_items.lock().unwrap();
+    let Some(items) = guard.as_ref() else { return };
+    let _ = items.rest_time.set_text(rest_time_label(snapshot));
+}
+
+fn timer_time_label(remaining_secs: u32, is_running: bool, is_paused: bool) -> String {
+    let suffix = if is_running {
+        ""
+    } else if is_paused {
+        "  (Paused)"
+    } else {
+        "  (Ready)"
+    };
+    format!("Pomodoro  ·  {}{suffix}", format_clock(remaining_secs))
+}
+
+fn rest_time_label(snapshot: &RestReminderSnapshot) -> String {
+    if !snapshot.enabled {
+        return "Rest break  ·  Off".to_string();
+    }
+
+    let suffix = match snapshot.pause_reason.as_str() {
+        "manual" => "  (Paused)",
+        "pomodoro" => "  (Pomodoro)",
+        _ => "",
+    };
+    format!(
+        "Rest break  ·  {}{suffix}",
+        format_clock(snapshot.timer_remaining_secs)
+    )
+}
+
+fn format_clock(total_secs: u32) -> String {
+    let hours = total_secs / 3600;
+    let minutes = (total_secs % 3600) / 60;
+    let seconds = total_secs % 60;
+    if hours > 0 {
+        format!("{hours}:{minutes:02}:{seconds:02}")
+    } else {
+        format!("{minutes:02}:{seconds:02}")
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -437,7 +609,10 @@ pub fn render_tray_icon_rgba(
 ) -> Vec<u8> {
     let mut pixmap = Pixmap::new(SIZE, SIZE).expect("pixmap alloc");
 
-    let mut paint = Paint { anti_alias: true, ..Default::default() };
+    let mut paint = Paint {
+        anti_alias: true,
+        ..Default::default()
+    };
 
     let stroke = Stroke {
         width: STROKE_WIDTH,
@@ -460,8 +635,8 @@ pub fn render_tray_icon_rgba(
     // Round-type color: used for both the progress arc and the pause bars.
     let round_color = match round_type {
         "short-break" => rgba_color(colors.short_round),
-        "long-break"  => rgba_color(colors.long_round),
-        _             => rgba_color(colors.focus_round),
+        "long-break" => rgba_color(colors.long_round),
+        _ => rgba_color(colors.focus_round),
     };
 
     // Progress arc from 12 o'clock, clockwise, in the round-type colour.
@@ -472,8 +647,8 @@ pub fn render_tray_icon_rgba(
     let sweep = effective.clamp(0.0, 1.0) * TAU;
     if sweep > 0.001 {
         let start = -FRAC_PI_2;
-        let end   = start + sweep;
-        let path  = build_arc_path(CENTER, CENTER, RADIUS, start, end);
+        let end = start + sweep;
+        let path = build_arc_path(CENTER, CENTER, RADIUS, start, end);
         pixmap.stroke_path(&path, &paint, &stroke, Transform::identity(), None);
     }
 
@@ -489,8 +664,11 @@ pub fn render_tray_icon_rgba(
             if let Some(rect) = tiny_skia::Rect::from_xywh(x, bar_y, bar_w, bar_h) {
                 let p = PathBuilder::from_rect(rect);
                 pixmap.fill_path(
-                    &p, &paint, tiny_skia::FillRule::Winding,
-                    Transform::identity(), None,
+                    &p,
+                    &paint,
+                    tiny_skia::FillRule::Winding,
+                    Transform::identity(),
+                    None,
                 );
             }
         }
@@ -522,11 +700,17 @@ fn arc_segment(pb: &mut PathBuilder, cx: f32, cy: f32, r: f32, a0: f32, a1: f32,
     let alpha = ((a1 - a0) / 4.0).tan() * 4.0 / 3.0;
     let (s0, c0) = a0.sin_cos();
     let (s1, c1) = a1.sin_cos();
-    let x0 = cx + r * c0; let y0 = cy + r * s0;
-    let x3 = cx + r * c1; let y3 = cy + r * s1;
-    let x1 = x0 - alpha * r * s0; let y1 = y0 + alpha * r * c0;
-    let x2 = x3 + alpha * r * s1; let y2 = y3 - alpha * r * c1;
-    if first { pb.move_to(x0, y0); }
+    let x0 = cx + r * c0;
+    let y0 = cy + r * s0;
+    let x3 = cx + r * c1;
+    let y3 = cy + r * s1;
+    let x1 = x0 - alpha * r * s0;
+    let y1 = y0 + alpha * r * c0;
+    let x2 = x3 + alpha * r * s1;
+    let y2 = y3 - alpha * r * c1;
+    if first {
+        pb.move_to(x0, y0);
+    }
     pb.cubic_to(x1, y1, x2, y2, x3, y3);
 }
 

@@ -76,6 +76,21 @@ pub fn rest_reminder_preview(rest_reminder: State<'_, Arc<RestReminderController
     rest_reminder.preview();
 }
 
+#[tauri::command]
+pub fn rest_reminder_pause(rest_reminder: State<'_, Arc<RestReminderController>>) {
+    rest_reminder.pause();
+}
+
+#[tauri::command]
+pub fn rest_reminder_resume(rest_reminder: State<'_, Arc<RestReminderController>>) {
+    rest_reminder.resume();
+}
+
+#[tauri::command]
+pub fn rest_reminder_reset(rest_reminder: State<'_, Arc<RestReminderController>>) {
+    rest_reminder.reset();
+}
+
 // ---------------------------------------------------------------------------
 // CMD-02 — Settings commands
 // ---------------------------------------------------------------------------
