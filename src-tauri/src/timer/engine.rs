@@ -413,11 +413,45 @@ mod tests {
         let (handle, rx) = spawn(10, TICK);
         handle.send(TimerCommand::Start);
 
-        // Let 3 ticks fire, then suspend.
-        std::thread::sleep(TICK * 3 + TICK / 2);
+        // Wait for the third observed tick instead of sleeping for an assumed
+        // amount of wall-clock time. On a busy CI runner, the command channel
+        // can wake just before the third recv_timeout is processed even after
+        // three nominal tick intervals have elapsed.
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let mut before = Vec::new();
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            assert!(!remaining.is_zero(), "timed out waiting for the third tick");
+            let event = rx
+                .recv_timeout(remaining)
+                .expect("timer stopped before the third tick");
+            let reached_third_tick = matches!(
+                &event,
+                TimerEvent::Tick { elapsed_secs, .. } if *elapsed_secs >= 3
+            );
+            before.push(event);
+            if reached_third_tick {
+                break;
+            }
+        }
+
         handle.send(TimerCommand::Suspend);
 
-        let before = drain(&rx);
+        // Wait until the engine acknowledges suspension before examining the
+        // saved position or beginning the simulated OS-sleep gap.
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            assert!(!remaining.is_zero(), "timed out waiting for suspend acknowledgement");
+            let event = rx
+                .recv_timeout(remaining)
+                .expect("timer stopped before suspension was acknowledged");
+            let suspended = matches!(&event, TimerEvent::Suspended { .. });
+            before.push(event);
+            if suspended {
+                break;
+            }
+        }
+
         let suspended_elapsed = before.iter().find_map(|e| {
             if let TimerEvent::Suspended { elapsed_secs } = e {
                 Some(*elapsed_secs)
