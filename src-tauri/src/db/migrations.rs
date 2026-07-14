@@ -90,6 +90,18 @@ const MIGRATION_6: &str = "
     INSERT INTO schema_version VALUES (6);
 ";
 
+/// Adds the independent background rest-reminder settings. The timer itself
+/// remains the source of Pomodoro statistics; these values only control when
+/// and how the full-screen black overlay appears.
+const MIGRATION_7: &str = "
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('rest_reminder_enabled', 'true');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('rest_reminder_interval_secs', '3600');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('rest_reminder_duration_secs', '20');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('rest_reminder_message', 'Rest your eyes. Stand up, stretch, and breathe.');
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('rest_reminder_allow_skip', 'true');
+    INSERT INTO schema_version VALUES (7);
+";
+
 /// Apply any pending migrations. Each migration is wrapped in a transaction
 /// so a partial failure leaves the database unchanged.
 pub fn run(conn: &Connection) -> Result<()> {
@@ -131,6 +143,12 @@ pub fn run(conn: &Connection) -> Result<()> {
         log::info!("[db/migrations] MIGRATION_6 complete");
     }
 
+    if version < 7 {
+        log::info!("[db/migrations] applying MIGRATION_7: seed rest reminder settings");
+        conn.execute_batch(&format!("BEGIN; {MIGRATION_7} COMMIT;"))?;
+        log::info!("[db/migrations] MIGRATION_7 complete");
+    }
+
     Ok(())
 }
 
@@ -166,7 +184,7 @@ mod tests {
         let v: i64 = conn
             .query_row("SELECT MAX(version) FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 6);
+        assert_eq!(v, 7);
     }
 
     #[test]

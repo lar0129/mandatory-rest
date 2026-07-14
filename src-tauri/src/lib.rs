@@ -2,6 +2,7 @@ pub mod audio;
 pub mod commands;
 pub mod db;
 pub mod notifications;
+pub mod rest_reminder;
 pub mod settings;
 pub mod shortcuts;
 pub mod themes;
@@ -24,6 +25,7 @@ use commands::{
     audio_clear_custom, audio_get_custom_info, audio_set_custom,
     get_log_dir, open_log_dir,
     notification_show,
+    rest_reminder_dismiss, rest_reminder_get_state, rest_reminder_preview,
     settings_get, settings_reset_defaults, settings_set,
     shortcuts_reload,
     sessions_clear,
@@ -130,11 +132,18 @@ pub fn run() {
             }
 
             // --- Timer controller (needs settings + AppHandle + TrayState + DB) ---
+            let rest_reminder = Arc::new(rest_reminder::RestReminderController::new(
+                app.handle().clone(),
+                &initial_settings,
+            ));
+            app.manage(Arc::clone(&rest_reminder));
+
             let timer = timer::TimerController::new(
                 app.handle().clone(),
                 initial_settings.clone(),
                 Arc::clone(&tray_state),
                 db.clone(),
+                Arc::clone(&rest_reminder),
             );
             app.manage(timer);
 
@@ -335,8 +344,11 @@ pub fn run() {
                             let _ = win_for_close.hide();
                         } else {
                             // Main window is truly closing — close child windows if open.
-                            for label in ["settings", "stats"] {
-                                if let Some(win) = app_for_close.get_webview_window(label) {
+                            for (label, win) in app_for_close.webview_windows() {
+                                if label == "settings"
+                                    || label == "stats"
+                                    || label.starts_with("rest-reminder-")
+                                {
                                     let _ = win.close();
                                 }
                             }
@@ -373,6 +385,10 @@ pub fn run() {
             timer_restart_round,
             timer_skip,
             timer_get_state,
+            // Rest reminders
+            rest_reminder_get_state,
+            rest_reminder_dismiss,
+            rest_reminder_preview,
             // Settings
             settings_get,
             settings_set,

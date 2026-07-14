@@ -12,6 +12,7 @@ import type {
   DetailedStats,
   HeatmapStats,
   UpdateInfo,
+  RestReminderState,
 } from '$lib/types';
 
 // --- Timer commands ---
@@ -21,6 +22,12 @@ export const timerReset = () => invoke<void>('timer_reset');
 export const timerRestartRound = () => invoke<void>('timer_restart_round');
 export const timerSkip = () => invoke<void>('timer_skip');
 export const getTimerState = () => invoke<TimerState>('timer_get_state');
+
+// --- Rest reminder commands ---
+
+export const getRestReminderState = () => invoke<RestReminderState>('rest_reminder_get_state');
+export const dismissRestReminder = () => invoke<void>('rest_reminder_dismiss');
+export const previewRestReminder = () => invoke<void>('rest_reminder_preview');
 
 // --- Settings commands ---
 

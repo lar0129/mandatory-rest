@@ -57,6 +57,16 @@ pub struct Settings {
     pub local_shortcut_volume_up: String,
     pub local_shortcut_mute: String,
     pub local_shortcut_fullscreen: String,
+    /// Enables the independent background rest reminder while Pomodoro is idle.
+    pub rest_reminder_enabled: bool,
+    /// Delay between background reminders in seconds.
+    pub rest_reminder_interval_secs: u32,
+    /// Length of the black rest overlay in seconds.
+    pub rest_reminder_duration_secs: u32,
+    /// User-defined text displayed on the black rest overlay.
+    pub rest_reminder_message: String,
+    /// Whether the overlay exposes a skip button and Escape shortcut.
+    pub rest_reminder_allow_skip: bool,
     /// Last known window X coordinate (physical pixels). `None` = use OS default.
     pub window_x: Option<i32>,
     /// Last known window Y coordinate (physical pixels). `None` = use OS default.
@@ -120,6 +130,11 @@ impl Default for Settings {
             local_shortcut_volume_up: "ArrowUp".to_string(),
             local_shortcut_mute: "m".to_string(),
             local_shortcut_fullscreen: "F11".to_string(),
+            rest_reminder_enabled: true,
+            rest_reminder_interval_secs: 60 * 60,
+            rest_reminder_duration_secs: 20,
+            rest_reminder_message: "Rest your eyes. Stand up, stretch, and breathe.".to_string(),
+            rest_reminder_allow_skip: true,
             window_x: None,
             window_y: None,
             window_width: None,
@@ -245,6 +260,28 @@ pub fn load(conn: &Connection) -> Result<Settings> {
         local_shortcut_volume_up: map.get("local_shortcut_volume_up").cloned().unwrap_or(d.local_shortcut_volume_up),
         local_shortcut_mute: map.get("local_shortcut_mute").cloned().unwrap_or(d.local_shortcut_mute),
         local_shortcut_fullscreen: map.get("local_shortcut_fullscreen").cloned().unwrap_or(d.local_shortcut_fullscreen),
+        rest_reminder_enabled: parse_bool(&map, "rest_reminder_enabled", d.rest_reminder_enabled),
+        rest_reminder_interval_secs: parse_u32(
+            &map,
+            "rest_reminder_interval_secs",
+            d.rest_reminder_interval_secs,
+        )
+        .max(1),
+        rest_reminder_duration_secs: parse_u32(
+            &map,
+            "rest_reminder_duration_secs",
+            d.rest_reminder_duration_secs,
+        )
+        .max(1),
+        rest_reminder_message: map
+            .get("rest_reminder_message")
+            .cloned()
+            .unwrap_or(d.rest_reminder_message),
+        rest_reminder_allow_skip: parse_bool(
+            &map,
+            "rest_reminder_allow_skip",
+            d.rest_reminder_allow_skip,
+        ),
         window_x: parse_opt_i32(&map, "window_x"),
         window_y: parse_opt_i32(&map, "window_y"),
         window_width: parse_opt_u32(&map, "window_width"),
@@ -342,6 +379,10 @@ mod tests {
         assert_eq!(s.theme_dark, "Pomotroid");
         assert_eq!(s.language, "auto");
         assert!(!s.verbose_logging);
+        assert!(s.rest_reminder_enabled);
+        assert_eq!(s.rest_reminder_interval_secs, 60 * 60);
+        assert_eq!(s.rest_reminder_duration_secs, 20);
+        assert!(s.rest_reminder_allow_skip);
     }
 
     #[test]

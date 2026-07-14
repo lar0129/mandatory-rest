@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use crate::audio::{self, AudioManager};
 use crate::notifications;
+use crate::rest_reminder::{RestReminderController, RestReminderSnapshot};
 use crate::db::{queries, DbState};
 use crate::settings::{self, Settings};
 use crate::shortcuts;
@@ -55,6 +56,27 @@ pub fn timer_get_state(timer: State<'_, TimerController>) -> TimerSnapshot {
 }
 
 // ---------------------------------------------------------------------------
+// Rest reminder commands
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn rest_reminder_get_state(
+    rest_reminder: State<'_, Arc<RestReminderController>>,
+) -> RestReminderSnapshot {
+    rest_reminder.snapshot()
+}
+
+#[tauri::command]
+pub fn rest_reminder_dismiss(rest_reminder: State<'_, Arc<RestReminderController>>) {
+    rest_reminder.dismiss();
+}
+
+#[tauri::command]
+pub fn rest_reminder_preview(rest_reminder: State<'_, Arc<RestReminderController>>) {
+    rest_reminder.preview();
+}
+
+// ---------------------------------------------------------------------------
 // CMD-02 — Settings commands
 // ---------------------------------------------------------------------------
 
@@ -80,6 +102,7 @@ pub fn settings_set(
     timer: State<'_, TimerController>,
     tray_state: State<'_, Arc<TrayState>>,
     ws_state: State<'_, Arc<WsState>>,
+    rest_reminder: State<'_, Arc<RestReminderController>>,
     app: AppHandle,
 ) -> Result<Settings, String> {
     log::debug!("[settings] set {key}={value}");
@@ -115,6 +138,7 @@ pub fn settings_set(
 
     // Keep the timer engine in sync when time-related settings change.
     timer.apply_settings(new_settings.clone());
+    rest_reminder.apply_settings(&new_settings);
 
     // Broadcast an updated snapshot so the frontend immediately reflects any
     // changed settings (round count, durations, etc.) regardless of timer
@@ -238,6 +262,7 @@ pub fn settings_reset_defaults(
     db: State<'_, DbState>,
     timer: State<'_, TimerController>,
     tray_state: State<'_, Arc<TrayState>>,
+    rest_reminder: State<'_, Arc<RestReminderController>>,
     app: AppHandle,
 ) -> Result<Settings, String> {
     log::info!("[settings] reset to defaults");
@@ -251,6 +276,7 @@ pub fn settings_reset_defaults(
     };
 
     timer.apply_settings(new_settings.clone());
+    rest_reminder.apply_settings(&new_settings);
     *tray_state.countdown_mode.lock().unwrap() = new_settings.dial_countdown;
 
     // Broadcast a reset snapshot so the frontend dial and display reflect the
@@ -787,4 +813,3 @@ mod tests {
         assert_eq!(n, 0);
     }
 }
-

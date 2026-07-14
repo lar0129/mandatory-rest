@@ -39,4 +39,9 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("local_shortcut_volume_up", "ArrowUp"),
     ("local_shortcut_mute", "m"),
     ("local_shortcut_fullscreen", "F11"),
+    ("rest_reminder_enabled", "true"),
+    ("rest_reminder_interval_secs", "3600"),
+    ("rest_reminder_duration_secs", "20"),
+    ("rest_reminder_message", "Rest your eyes. Stand up, stretch, and breathe."),
+    ("rest_reminder_allow_skip", "true"),
 ];

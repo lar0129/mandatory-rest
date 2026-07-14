@@ -9,6 +9,7 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::audio::{AudioCue, AudioManager};
 use crate::db::{queries, DbState};
+use crate::rest_reminder::RestReminderController;
 use crate::settings::Settings;
 use crate::tray::{self, TrayState};
 use crate::websocket::{self, WsState};
@@ -61,6 +62,7 @@ pub struct TimerController {
     /// Kept alive so TrayState is not dropped if lib.rs forgets its copy.
     #[allow(dead_code)]
     tray: Arc<TrayState>,
+    rest_reminder: Arc<RestReminderController>,
 }
 
 impl TimerController {
@@ -71,6 +73,7 @@ impl TimerController {
         settings: Settings,
         tray: Arc<TrayState>,
         db: DbState,
+        rest_reminder: Arc<RestReminderController>,
     ) -> Self {
         let seq = SequenceState::new(settings.long_break_interval);
         let duration = seq.current_duration_secs(&settings);
@@ -90,6 +93,7 @@ impl TimerController {
         let shared_thread = Arc::clone(&shared);
         let engine_thread = engine.clone();
         let tray_thread = Arc::clone(&tray);
+        let rest_thread = Arc::clone(&rest_reminder);
 
         std::thread::Builder::new()
             .name("timer-events".to_string())
@@ -104,6 +108,7 @@ impl TimerController {
                         engine: engine_thread,
                         tray: tray_thread,
                         db,
+                        rest_reminder: rest_thread,
                     },
                 );
             })
@@ -115,6 +120,7 @@ impl TimerController {
             settings: settings_arc,
             shared,
             tray,
+            rest_reminder,
         }
     }
 
@@ -128,15 +134,18 @@ impl TimerController {
             self.engine.send(TimerCommand::Pause);
         } else if s.elapsed_secs > 0 {
             log::info!("[timer] resume");
+            self.rest_reminder.pomodoro_started();
             self.engine.send(TimerCommand::Resume);
         } else {
             log::info!("[timer] start");
+            self.rest_reminder.pomodoro_started();
             self.engine.send(TimerCommand::Start);
         }
     }
 
     pub fn reset(&self) {
         log::info!("[timer] reset");
+        self.rest_reminder.pomodoro_stopped();
         self.sequence.lock().unwrap().reset();
         // Send only Reset — the event listener's Reset handler will follow up
         // with Prime once the engine is confirmed Idle. Sending a duration
@@ -149,11 +158,13 @@ impl TimerController {
     /// preserved — only the elapsed time is zeroed.
     pub fn restart_round(&self) {
         log::info!("[timer] restart round");
+        self.rest_reminder.pomodoro_started();
         self.engine.send(TimerCommand::Reset);
     }
 
     pub fn skip(&self) {
         log::info!("[timer] skip");
+        self.rest_reminder.pomodoro_started();
         self.engine.send(TimerCommand::Skip);
     }
 
@@ -229,6 +240,7 @@ struct ListenContext {
     engine: EngineHandle,
     tray: Arc<TrayState>,
     db: DbState,
+    rest_reminder: Arc<RestReminderController>,
 }
 
 fn listen_events(
@@ -236,7 +248,7 @@ fn listen_events(
     event_rx: std::sync::mpsc::Receiver<TimerEvent>,
     ctx: ListenContext,
 ) {
-    let ListenContext { sequence, settings, shared, engine, tray, db } = ctx;
+    let ListenContext { sequence, settings, shared, engine, tray, db, rest_reminder } = ctx;
     // Track last tray progress to throttle redraws to ≥ 1% delta.
     let mut last_tray_progress: f32 = -1.0;
     // Active session row ID for recording (None = not started yet).
@@ -312,6 +324,10 @@ fn listen_events(
                     if let Ok(conn) = db.lock() {
                         let _ = queries::complete_session(&conn, session_id, !was_skipped);
                     }
+                }
+
+                if completed_round == "work" && !was_skipped {
+                    rest_reminder.pomodoro_work_completed();
                 }
 
                 // Advance sequence.

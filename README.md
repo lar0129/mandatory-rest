@@ -27,6 +27,7 @@ Built with [Tauri 2](https://tauri.app), [Rust](https://www.rust-lang.org), and 
 ## Features
 
 - **Configurable timer** — customise work duration, break durations, and the number of rounds per long break
+- **Timed rest reminder** — configurable background schedule with a black multi-monitor overlay, custom message, countdown, and optional skip; the schedule pauses during Pomodoro sessions and the overlay appears when a focus round completes
 - **Statistics** — daily, weekly, and all-time session history with charts and a 52-week heatmap
 - **38 bundled themes** — including Dracula, Nord, Tokyo Night, Catppuccin, Gruvbox, Rose Piné, and more; auto-switches with your OS light/dark preference
 - **Custom themes** — drop a JSON file into the themes folder; applied instantly without a restart

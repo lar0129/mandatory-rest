@@ -56,6 +56,19 @@ export interface Settings {
   local_shortcut_volume_up: string;
   local_shortcut_mute: string;
   local_shortcut_fullscreen: string;
+  rest_reminder_enabled: boolean;
+  rest_reminder_interval_secs: number;
+  rest_reminder_duration_secs: number;
+  rest_reminder_message: string;
+  rest_reminder_allow_skip: boolean;
+}
+
+export interface RestReminderState {
+  active: boolean;
+  message: string;
+  remaining_secs: number;
+  allow_skip: boolean;
+  reason: 'scheduled' | 'pomodoro' | 'preview' | '';
 }
 
 /** Returned by `check_update` — describes an available update. */
