@@ -105,8 +105,8 @@
   }
 
   .overlay {
-    width: 100vw;
-    height: 100vh;
+    position: fixed;
+    inset: 0;
     display: grid;
     place-items: center;
     background: #000;

@@ -1,0 +1,112 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - LICENSE
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: macOS Universal
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install Rust stable with Apple targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Check frontend
+        run: npm run check
+
+      - name: Run Rust tests (non-blocking)
+        id: rust-tests
+        continue-on-error: true
+        run: cargo test --manifest-path src-tauri/Cargo.toml -- --test-threads=1
+
+      - name: Build universal macOS app and DMG
+        run: npm run tauri build -- --target universal-apple-darwin --bundles app,dmg
+        env:
+          CI: true
+
+      - name: Collect macOS artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          bundle_root='src-tauri/target/universal-apple-darwin/release/bundle'
+          app_path="$(find "$bundle_root/macos" -maxdepth 1 -type d -name '*.app' -print -quit)"
+          dmg_path="$(find "$bundle_root/dmg" -maxdepth 1 -type f -name '*.dmg' -print -quit)"
+
+          if [[ -z "$app_path" || -z "$dmg_path" ]]; then
+            echo 'macOS app bundle or DMG was not generated.' >&2
+            exit 1
+          fi
+
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$app_path" 'dist/Mandatory-Rest-macOS-universal.app.zip'
+          cp "$dmg_path" 'dist/Mandatory-Rest-macOS-universal.dmg'
+
+          (
+            cd dist
+            shasum -a 256 \
+              'Mandatory-Rest-macOS-universal.app.zip' \
+              'Mandatory-Rest-macOS-universal.dmg' > SHA256SUMS.txt
+          )
+
+      - name: Upload macOS packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: mandatory-rest-macos-universal-${{ github.run_number }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Write build summary
+        shell: bash
+        run: |
+          {
+            echo '## Mandatory Rest macOS build'
+            echo
+            echo '- `Mandatory-Rest-macOS-universal.dmg`: universal installer image'
+            echo '- `Mandatory-Rest-macOS-universal.app.zip`: universal app bundle'
+            echo '- Includes Apple Silicon and Intel binaries.'
+            echo '- This CI build is unsigned, so macOS Gatekeeper may require manual approval.'
+            echo
+            if [[ '${{ steps.rust-tests.outcome }}' != 'success' ]]; then
+              echo '> [!WARNING]'
+              echo '> One or more Rust tests failed on the macOS runner. Packaging was allowed to continue.'
+              echo
+            fi
+            echo 'Download the packages from the **Artifacts** section of this workflow run.'
+          } >> "$GITHUB_STEP_SUMMARY"

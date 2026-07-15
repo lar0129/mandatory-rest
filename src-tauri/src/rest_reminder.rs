@@ -626,6 +626,7 @@ fn show_overlay_windows(app: &AppHandle) {
             )
             .title("Pomotroid - Rest")
             .decorations(false)
+            .shadow(false)
             .resizable(false)
             .always_on_top(true)
             .skip_taskbar(true)
@@ -645,6 +646,7 @@ fn show_overlay_windows(app: &AppHandle) {
                 WebviewWindowBuilder::new(&app_handle, label, WebviewUrl::App("rest".into()))
                     .title("Pomotroid - Rest")
                     .decorations(false)
+                    .shadow(false)
                     .resizable(false)
                     .always_on_top(true)
                     .skip_taskbar(true)
@@ -660,6 +662,18 @@ fn show_overlay_windows(app: &AppHandle) {
                     )));
                     let _ =
                         window.set_size(Size::Physical(PhysicalSize::new(size.width, size.height)));
+
+                    // A borderless window sized to the monitor can still retain a tiny
+                    // invisible DWM frame on Windows, which appears as a light seam at
+                    // the top/left edge. Enter native fullscreen only on Windows after
+                    // positioning the hidden window on its target monitor. macOS keeps
+                    // the sized borderless window to avoid creating a separate Space.
+                    #[cfg(target_os = "windows")]
+                    if let Err(error) = window.set_fullscreen(true) {
+                        log::warn!(
+                            "[rest] failed to fullscreen overlay on monitor {index}: {error}"
+                        );
+                    }
                 }
                 Err(error) => {
                     log::error!("[rest] failed to create overlay for monitor {index}: {error}");
